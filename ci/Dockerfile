@@ -1,10 +1,10 @@
 # ============================================================================
-# Go Ethereum Node Dockerfile
+# Go Etherium Node Dockerfile
 # ============================================================================
 # This Dockerfile creates a minimal Ethereum node image with just the 'geth' 
 # client. It uses a multi-stage build process for optimal image size.
 # 
-# Based on the Go Ethereum implementation described in the main README.md,
+# Based on the Go Etherium implementation described in the main README.md,
 # this container provides a production-ready node with minimal dependencies.
 # ============================================================================
 
@@ -24,14 +24,14 @@ RUN apk add --no-cache gcc musl-dev linux-headers git
 
 # Get dependencies - will also be cached if we won't change go.mod/go.sum
 # This step is separated to leverage Docker layer caching
-COPY go.mod /go-ethereum/
-COPY go.sum /go-ethereum/
-RUN cd /go-ethereum && go mod download
+COPY go.mod /go-etherium/
+COPY go.sum /go-etherium/
+RUN cd /go-etherium && go mod download
 
 # Copy the source code and build the geth binary
-ADD . /go-ethereum
+ADD . /go-etherium
 # Builds the static geth binary as described in README.md "Building the source" section
-RUN cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+RUN cd /go-etherium && go run build/ci.go install -static ./cmd/geth
 
 # ============================================================================
 # Stage 2: Runtime environment
@@ -42,7 +42,7 @@ FROM alpine:latest
 # Install only the necessary runtime dependencies
 RUN apk add --no-cache ca-certificates
 # Copy only the geth binary from the builder stage
-COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
+COPY --from=builder /go-etherium/build/bin/geth /usr/local/bin/
 
 # Expose the default Ethereum node ports:
 # - 8545: HTTP JSON-RPC
@@ -60,4 +60,4 @@ ARG BRANCH=""        # Git branch for environment determination
 ARG ENVIRONMENT=""   # Deployment environment (prod, stage, dev)
 
 # Container metadata labels
-LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM"
+LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM" branch="$BRANCH" environment="$ENVIRONMENT"
