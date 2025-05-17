@@ -1,0 +1,78 @@
+# ============================================================================
+# go-ethereum DevNet Services
+# ============================================================================
+# This Docker Compose file defines a complete local development environment
+# for go-ethereum with two primary services:
+# 1. A single Ethereum node running in development mode
+# 2. A tools container with all Ethereum CLI utilities available
+# ============================================================================
+
+services:
+  # ============================================================================
+  # Main Ethereum node service
+  # ============================================================================
+  node:
+    build:
+      context: ..         # Build context is the project root directory
+      dockerfile: ./ci/Dockerfile  # Using the main Dockerfile for the node
+    container_name: go-ethereum-node  # Custom container name for easy reference
+    ports:
+      # Expose all required Ethereum node ports to the host machine
+      - "8545:8545"  # HTTP RPC - For API calls and interactions
+      - "8546:8546"  # WebSocket RPC - For subscription-based APIs
+      - "30303:30303"  # P2P TCP - For peer communication
+      - "30303:30303/udp"  # P2P UDP - For node discovery
+    volumes:
+      # Persistent volume to store the blockchain data
+      - node-data:/data
+    # Geth command-line options as described in README.md
+    # "Running geth" and "Programmatically interfacing" sections
+    command: >
+      --datadir=/data
+      --http
+      --http.addr=0.0.0.0
+      --http.api=eth,net,web3,debug,admin,personal
+      --ws
+      --ws.addr=0.0.0.0
+      --ws.api=eth,net,web3,debug
+      --nodiscover
+      --dev
+      --dev.period=0
+      --allow-insecure-unlock
+    networks:
+      - go-ethereum-net     # Connect to the custom bridge network
+
+  # ============================================================================
+  # Development tools service
+  # ============================================================================
+  tools:
+    build:
+      context: ..         # Build context is the project root directory
+      dockerfile: ./ci/Dockerfile.alltools  # Using the all-tools Dockerfile
+    container_name: go-ethereum-tools  # Custom container name for easy reference
+    depends_on:
+      - node               # Ensure the node service starts first
+    volumes:
+      # Persistent volume for development data
+      - tools-data:/data
+    environment:
+      # Configure environment variables for the tools
+      - ETHEREUM_RPC=http://node:8545  # Point to the node's RPC endpoint
+    networks:
+      - go-ethereum-net    # Connect to the same network as the node
+    # Keep the container running with tail command
+    command: tail -f /dev/null
+
+# ============================================================================
+# Network Configuration
+# ============================================================================
+networks:
+  go-ethereum-net:
+    driver: bridge         # Standard bridge network for container communication
+
+# ============================================================================
+# Volume Configuration
+# ============================================================================
+volumes:
+  node-data:               # Persistent volume for blockchain data
+  tools-data:              # Persistent volume for development tools data 
