@@ -1,0 +1,74 @@
+# ============================================================================
+# Go Ethereum AllTools Dockerfile
+# ============================================================================
+# This Dockerfile creates a comprehensive Ethereum development image with all
+# CLI tools provided by the Go Ethereum implementation. It includes the full
+# suite of utilities described in the README.md "Executables" section:
+# - geth: Main Ethereum client
+# - clef: Standalone signing tool
+# - devp2p: Network layer utilities
+# - abigen: Smart contract binding generator
+# - evm: EVM execution utility
+# - rlpdump: RLP data decoder
+# - and other development tools
+# ============================================================================
+
+# Support setting various labels on the final image
+ARG COMMIT=""        # Git commit hash of the source code
+ARG VERSION=""       # Version number of the build
+ARG BUILDNUM=""      # Build number for CI/CD tracking
+
+# ============================================================================
+# Stage 1: Build environment
+# ============================================================================
+# Build Geth in a stock Go builder container
+FROM golang:1.23.0-alpine AS builder
+
+# Install required build dependencies
+RUN apk add --no-cache gcc musl-dev linux-headers git
+
+# Get dependencies - will also be cached if we won't change go.mod/go.sum
+# This step is separated to leverage Docker layer caching
+COPY go.mod /go-ethereum/
+COPY go.sum /go-ethereum/
+RUN cd /go-ethereum && go mod download
+
+# Copy the source code into the container
+ADD . /go-ethereum
+
+# This is not strictly necessary, but it matches the "Dockerfile" steps, thus
+# makes it so that under certain circumstances, the docker layer can be cached,
+# and the builder can jump to the next (build all) command, with the go cache fully loaded.
+#
+RUN cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+
+# Build all tools as described in README.md "Building the source" section
+# under "make all" command - this builds the full suite of utilities
+RUN cd /go-ethereum && go run build/ci.go install -static
+
+# ============================================================================
+# Stage 2: Runtime environment
+# ============================================================================
+# Pull all binaries into a second stage deploy alpine container
+FROM alpine:latest
+
+# Install only the necessary runtime dependencies
+RUN apk add --no-cache ca-certificates
+# Copy ALL binaries from the builder stage, not just geth
+COPY --from=builder /go-ethereum/build/bin/* /usr/local/bin/
+
+# Expose the default Ethereum node ports:
+# - 8545: HTTP JSON-RPC
+# - 8546: WebSocket JSON-RPC
+# - 30303: P2P communication (TCP and UDP)
+EXPOSE 8545 8546 30303 30303/udp
+
+# Add some metadata labels to help programmatic image consumption
+ARG COMMIT=""
+ARG VERSION=""
+ARG BUILDNUM=""
+ARG BRANCH=""        # Git branch for environment determination
+ARG ENVIRONMENT=""   # Deployment environment (prod, stage, dev)
+
+# Container metadata labels
+LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM"
