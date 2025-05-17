@@ -1,0 +1,133 @@
+# Docker Build and Push Workflow
+# This workflow automates the process of building and pushing Docker images to GitHub Container Registry
+# whenever a pull request with the label 'CI:Build' is merged to main or develop branches.
+name: Docker Build and Push
+
+# Workflow Trigger Configuration
+# Only runs when a pull request is closed (merged) to main or develop branches
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main      # Production branch
+      - develop   # Staging branch
+
+jobs:
+  build-and-push:
+    # Conditional execution: Only run if the PR was actually merged and has the 'CI:Build' label
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'CI:Build')
+    runs-on: ubuntu-latest
+    # Required permissions for pushing to GitHub Container Registry
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set environment variable based on target branch
+      # - main branch -> prod environment
+      # - develop branch -> stage environment
+      # - any other branch -> use branch name as environment (e.g. feature/my-feature) (OPTIONAL)
+      - name: Set environment based on target branch
+        id: set-env
+        run: |
+          if [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          elif [[ "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
+            echo "ENVIRONMENT=stage" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+          fi
+
+      # Step 3: Set up Docker Buildx for multi-platform builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Step 4: Authenticate with GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 5: Extract metadata for the main geth image
+      # Creates tags like:
+      # - branch_latest (e.g., main_latest, develop_latest)
+      # - branch_<short-sha> (e.g., main_a1b2c3d, develop_a1b2c3d)
+      - name: Extract metadata for main image
+        id: meta-main
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ github.event.pull_request.base.ref }}_latest
+            type=sha,prefix=${{ github.event.pull_request.base.ref }}_,format=short
+
+      # Step 6: Extract metadata for alltools image (similar tag structure as main image)
+      - name: Extract metadata for alltools image
+        id: meta-alltools
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}_alltools
+          tags: |
+            type=raw,value=${{ github.event.pull_request.base.ref }}_latest
+            type=sha,prefix=${{ github.event.pull_request.base.ref }}_,format=short
+
+      # Step 7: Build and push the main geth Docker image
+      # This uses the Dockerfile in ci/Dockerfile which builds only the geth binary
+      - name: Build and push environment Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./ci/Dockerfile
+          push: true
+          tags: ${{ steps.meta-main.outputs.tags }}
+          # Set standardized OCI image labels for better container metadata
+          labels: |
+            org.opencontainers.image.title=${{ github.event.pull_request.base.ref }}_${{ env.ENVIRONMENT }}
+            org.opencontainers.image.description=go-ethereum application image | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }} | Build: ${{ github.run_number }} | Commit: ${{ github.sha }}
+            org.opencontainers.image.version=${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/README.md
+            org.opencontainers.image.authors=${{ github.actor }}
+          # Pass build arguments to the Dockerfile for versioning
+          # These values will be available as ARG variables in the Dockerfile
+          build-args: |
+            COMMIT=${{ github.sha }}
+            VERSION=${{ github.sha }}
+            BUILDNUM=${{ github.run_number }}
+            BRANCH=${{ github.event.pull_request.base.ref }}
+            ENVIRONMENT=${{ env.ENVIRONMENT }}
+
+      # Step 8: Build and push the alltools Docker image
+      # This uses Dockerfile.alltools which builds all Ethereum tools, not just geth
+      - name: Build and push environment with all tools Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./ci/Dockerfile.alltools
+          push: true
+          tags: ${{ steps.meta-alltools.outputs.tags }}
+          # Similar OCI labels as the main image, but specifies this is the AllTools variant
+          labels: |
+            org.opencontainers.image.title=${{ github.event.pull_request.base.ref }}_${{ env.ENVIRONMENT }}_AllTools
+            org.opencontainers.image.description=go-ethereum development image with all tools | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }} | Build: ${{ github.run_number }} | Commit: ${{ github.sha }}
+            org.opencontainers.image.version=${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/README.md
+            org.opencontainers.image.authors=${{ github.actor }}
+          # Pass the same build arguments as the main image
+          build-args: |
+            COMMIT=${{ github.sha }}
+            VERSION=${{ github.sha }}
+            BUILDNUM=${{ github.run_number }}
+            BRANCH=${{ github.event.pull_request.base.ref }}
+            ENVIRONMENT=${{ env.ENVIRONMENT }} 
