@@ -1,8 +1,10 @@
 # CI Directory
 
-This directory contains Docker configuration files used for Continuous Integration (CI) and container deployment of the Go Etherium client:
+Docker and CI configurations for Go Ethereum:
 
-- `Dockerfile`: Defines a minimal Ethereum node image with just the `geth` client, using a multi-stage build process for optimal image size.
-- `Dockerfile.alltools`: Creates a comprehensive Ethereum development image with all CLI tools provided by the Go Etherium implementation, including `geth`, `clef`, `devp2p`, `abigen`, `evm`, `rlpdump`, and other development tools.
+- `Dockerfile` - Minimal Ethereum node image ([docs](DOCKERFILE_NODE.md))
+- `Dockerfile.alltools` - Full development environment ([docs](DOCKERFILE_ALLTOOLS.md))
+- `docker-compose.yml` - Container orchestration ([docs](DOCKER_COMPOSE.md))
+- `scripts/login.sh` - GitHub Container Registry authentication
 
-These Docker configurations support the build and deployment processes for the Go Etherium project. 
+For detailed documentation, refer to the corresponding .md files. 
