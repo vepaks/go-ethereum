@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Start geth in dev mode with the configured options
 # This will start a local Ethereum development network
