@@ -1,12 +1,13 @@
 # Use the base go-ethereum image with all tools
 FROM ghcr.io/vepaks/go-ethereum_alltools:master_latest
 
-# Install Node.js and npm for Hardhat
+# Install Node.js, npm, curl, and jq for Hardhat and scripts
 # We need Node.js to run the Hardhat project and deploy contracts
 RUN apk add --no-cache \
     nodejs \
     npm \
-    curl
+    curl \
+    jq
 
 # Set working directory for the Hardhat project
 WORKDIR /app
@@ -29,6 +30,7 @@ RUN ls -l /usr/local/bin/ && ls -l /app && ls -l /
 RUN chmod +x /usr/local/bin/init-devnet.sh
 
 # Set environment variables for geth
+# The dev account will be auto-created and unlocked by geth in dev mode
 ENV GETH_ARGS="--dev \
     --http \
     --http.addr 0.0.0.0 \
@@ -43,10 +45,8 @@ ENV GETH_ARGS="--dev \
     --allow-insecure-unlock \
     --rpc.allow-unprotected-txs \
     --nodiscover \
-    --mine \
     --miner.gaslimit 11500000 \
-    --miner.gasprice 1000000 \
-    --miner.etherbase 0x538b1bd9c6A1C607865AC001328713d59014FbEa"
+    --miner.gasprice 1000000"
 
 # The initialization script will:
 # 1. Start geth in dev mode
