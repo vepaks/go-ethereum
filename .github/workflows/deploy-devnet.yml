@@ -99,15 +99,14 @@ jobs:
         run: |
           docker run -d \
             --name devnet \
-            -p 8545:8545 \
-            -p 8546:8546 \
+            --network host \
             ghcr.io/${{ github.repository }}_devnet:${{ github.event.pull_request.base.ref }}_latest
 
       - name: Wait for devnet to be ready
         run: |
           timeout=60
           while [ $timeout -gt 0 ]; do
-            if curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null; then
+            if curl -s http://127.0.0.1:8545 -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null; then
               echo "Devnet is ready"
               exit 0
             fi
@@ -115,6 +114,7 @@ jobs:
             timeout=$((timeout-1))
           done
           echo "Devnet failed to start"
+          docker logs devnet
           exit 1
 
       - name: Install Node.js
@@ -132,7 +132,7 @@ jobs:
           cat > hardhat/.env << EOL
           # Network Configuration
           HARDHAT_NETWORK=localhost
-          HARDHAT_NETWORK_URL=http://localhost:8545
+          HARDHAT_NETWORK_URL=http://127.0.0.1:8545
 
           # Test Account Configuration
           TEST_MNEMONIC=${{ secrets.TEST_MNEMONIC }}
@@ -150,7 +150,7 @@ jobs:
           npx hardhat test --network localhost
         env:
           HARDHAT_NETWORK: localhost
-          HARDHAT_NETWORK_URL: http://localhost:8545
+          HARDHAT_NETWORK_URL: http://127.0.0.1:8545
           TEST_MNEMONIC: ${{ secrets.TEST_MNEMONIC }}
 
       - name: Show devnet container logs on failure
