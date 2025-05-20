@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Copy the Hardhat project files from the root directory
 # This includes contracts, scripts, and configuration
-COPY ../hardhat .
+COPY hardhat .
 
 # Install project dependencies
 # This will install all required npm packages for the Hardhat project
@@ -26,7 +26,7 @@ RUN npm install
 RUN npx hardhat compile
 
 # Copy the initialization script from ci/hardhat
-COPY init-devnet.sh /usr/local/bin/
+COPY ci/hardhat/init-devnet.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-devnet.sh
 
 # Set environment variables for geth
