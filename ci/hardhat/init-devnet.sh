@@ -28,13 +28,13 @@ if [ $timeout -eq 0 ]; then
     exit 1
 fi
 
-# Get the coinbase address (this is the account that will deploy contracts)
-COINBASE=$(curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":1}' http://localhost:8545 | jq -r '.result')
-echo "Using coinbase address: $COINBASE"
+# Get the dev account address (first account returned by eth_accounts)
+DEV_ACCOUNT=$(curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1}' http://localhost:8545 | jq -r '.result[0]')
+echo "Using dev account address: $DEV_ACCOUNT"
 
-# Ensure the coinbase account is unlocked
-echo "Unlocking coinbase account..."
-curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"personal_unlockAccount","params":["'$COINBASE'", "", 0],"id":1}' http://localhost:8545
+# Show balance for dev account
+BALANCE=$(curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'$DEV_ACCOUNT'", "latest"],"id":1}' http://localhost:8545 | jq -r '.result')
+echo "Dev account balance: $BALANCE"
 
 # Deploy the contracts using Hardhat
 echo "Deploying contracts..."
@@ -69,8 +69,8 @@ if check_geth; then
     curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://localhost:8545
     echo "Mining status:"
     curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}' http://localhost:8545
-    echo "Coinbase balance:"
-    curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'$COINBASE'", "latest"],"id":1}' http://localhost:8545
+    echo "Dev account balance:"
+    curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["'$DEV_ACCOUNT'", "latest"],"id":1}' http://localhost:8545
 else
     echo "Failed to verify devnet status"
     exit 1
