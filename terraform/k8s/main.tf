@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -188,9 +192,31 @@ resource "kubernetes_deployment" "go_ethereum" {
         container {
           image = "ethereum/client-go:stable"
           name  = "go-ethereum"
+          args  = [
+            "--http",
+            "--http.addr", "0.0.0.0",
+            "--http.port", "8545",
+            "--http.api", "eth,net,web3",
+            "--http.corsdomain", "*",
+            "--http.vhosts", "*",
+            "--syncmode", "snap",
+            "--cache", "4096",
+            "--maxpeers", "50"
+          ]
 
           port {
             container_port = 8545
+          }
+
+          resources {
+            limits = {
+              cpu    = "2"
+              memory = "4Gi"
+            }
+            requests = {
+              cpu    = "1"
+              memory = "2Gi"
+            }
           }
         }
       }
@@ -216,4 +242,38 @@ resource "kubernetes_service" "go_ethereum" {
 
     type = "LoadBalancer"
   }
+}
+
+# Kubernetes ConfigMap for aws-auth
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode([
+      {
+        rolearn  = aws_iam_role.eks_nodes.arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups   = ["system:bootstrappers", "system:nodes"]
+      }
+    ])
+  }
+
+  depends_on = [
+    aws_eks_cluster.main
+  ]
+}
+
+# Update kubeconfig
+resource "null_resource" "update_kubeconfig" {
+  provisioner "local-exec" {
+    command = "aws eks update-kubeconfig --name ${var.cluster_name} --region ${var.aws_region}"
+  }
+
+  depends_on = [
+    aws_eks_cluster.main,
+    kubernetes_config_map.aws_auth
+  ]
 } 
