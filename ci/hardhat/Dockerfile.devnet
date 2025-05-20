@@ -44,7 +44,8 @@ ENV GETH_ARGS="--dev \
     --rpc.allow-unprotected-txs \
     --nodiscover \
     --mine \
-    --miner.threads 1 \
+    --miner.gaslimit 11500000 \
+    --miner.gasprice 1000000 \
     --miner.etherbase 0x538b1bd9c6A1C607865AC001328713d59014FbEa"
 
 # The initialization script will:
