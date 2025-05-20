@@ -23,7 +23,8 @@ RUN npm install
 RUN npx hardhat compile
 
 # Copy the initialization script from ci/hardhat
-COPY ci/hardhat/init-devnet.sh /usr/local/bin/
+COPY ./ci/hardhat/init-devnet.sh /usr/local/bin/
+RUN ls -l /usr/local/bin/ && ls -l /app && ls -l /
 RUN chmod +x /usr/local/bin/init-devnet.sh
 
 # Set environment variables for geth
