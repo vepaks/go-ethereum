@@ -1,0 +1,24 @@
+services:
+  devnet:
+    # Use the devnet image that includes deployed contracts
+    image: ghcr.io/vepaks/go-ethereum_devnet:latest
+    # Map ports for RPC and WebSocket connections
+    ports:
+      - "8545:8545"  # HTTP JSON-RPC
+      - "8546:8546"  # WebSocket
+    # Mount volumes for persistent data
+    volumes:
+      - devnet-data:/root/.ethereum
+    # Environment variables for configuration
+    environment:
+      - GETH_OPTS=--dev --http --http.addr 0.0.0.0 --http.api eth,net,web3,debug --http.corsdomain "*" --ws --ws.addr 0.0.0.0 --ws.api eth,net,web3,debug --ws.origins "*"
+    # Load environment variables from .env file if it exists
+    env_file:
+      - ../.env
+    # Restart policy
+    restart: unless-stopped
+
+volumes:
+  # Named volume for persistent blockchain data
+  devnet-data:
+    name: go-ethereum-devnet-data 
