@@ -19,6 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: List files in ci/hardhat before build
+        run: ls -l ci/hardhat/
+
       - name: Set environment based on target branch
         id: set-env
         run: |
