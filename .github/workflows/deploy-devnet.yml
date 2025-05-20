@@ -52,7 +52,7 @@ jobs:
       - name: Build and push devnet Docker image
         uses: docker/build-push-action@v4
         with:
-          context: ./ci/hardhat
+          context: .
           file: ./ci/hardhat/Dockerfile.devnet
           push: true
           tags: ${{ steps.meta-devnet.outputs.tags }}
