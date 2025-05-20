@@ -5,7 +5,8 @@ FROM ghcr.io/vepaks/go-ethereum_alltools:master_latest
 # We need Node.js to run the Hardhat project and deploy contracts
 RUN apk add --no-cache \
     nodejs \
-    npm
+    npm \
+    curl
 
 # Set working directory for the Hardhat project
 WORKDIR /app
@@ -28,8 +29,23 @@ RUN ls -l /usr/local/bin/ && ls -l /app && ls -l /
 RUN chmod +x /usr/local/bin/init-devnet.sh
 
 # Set environment variables for geth
-# These are the default options for running geth in dev mode
-ENV GETH_OPTS="--dev --http --http.addr 0.0.0.0 --http.api eth,net,web3,debug --http.corsdomain '*' --ws --ws.addr 0.0.0.0 --ws.api eth,net,web3,debug --ws.origins '*'"
+ENV GETH_ARGS="--dev \
+    --http \
+    --http.addr 0.0.0.0 \
+    --http.port 8545 \
+    --http.api eth,net,web3,debug,miner \
+    --http.corsdomain '*' \
+    --ws \
+    --ws.addr 0.0.0.0 \
+    --ws.port 8546 \
+    --ws.api eth,net,web3,debug,miner \
+    --ws.origins '*' \
+    --allow-insecure-unlock \
+    --rpc.allow-unprotected-txs \
+    --nodiscover \
+    --mine \
+    --miner.threads 1 \
+    --miner.etherbase 0x538b1bd9c6A1C607865AC001328713d59014FbEa"
 
 # The initialization script will:
 # 1. Start geth in dev mode
