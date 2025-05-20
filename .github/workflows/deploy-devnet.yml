@@ -58,6 +58,7 @@ jobs:
           context: .
           file: ./ci/hardhat/Dockerfile.devnet
           push: true
+          no-cache: true
           tags: ${{ steps.meta-devnet.outputs.tags }}
           labels: |
             org.opencontainers.image.title=go-ethereum_devnet
