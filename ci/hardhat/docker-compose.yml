@@ -1,7 +1,9 @@
 services:
   devnet:
     # Use the devnet image that includes deployed contracts
-    image: ghcr.io/vepaks/go-ethereum_devnet:latest
+    image: ghcr.io/vepaks/go-ethereum:master_latest
+    # Always pull the latest image
+    pull_policy: always
     # Map ports for RPC and WebSocket connections
     ports:
       - "8545:8545"  # HTTP JSON-RPC

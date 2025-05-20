@@ -134,7 +134,8 @@ jobs:
           HARDHAT_NETWORK=localhost
           HARDHAT_NETWORK_URL=http://localhost:8545
 
-          # Test Account (will be funded by devnet)
+          # Test Account Configuration
+          TEST_MNEMONIC=${{ secrets.TEST_MNEMONIC }}
           TEST_PRIVATE_KEY=${{ secrets.TEST_PRIVATE_KEY }}
           TEST_ADDRESS=${{ secrets.TEST_ADDRESS }}
 
@@ -150,6 +151,7 @@ jobs:
         env:
           HARDHAT_NETWORK: localhost
           HARDHAT_NETWORK_URL: http://localhost:8545
+          TEST_MNEMONIC: ${{ secrets.TEST_MNEMONIC }}
 
       - name: Show devnet container logs on failure
         if: failure()
