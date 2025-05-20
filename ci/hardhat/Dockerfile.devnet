@@ -1,0 +1,40 @@
+# Use the base go-ethereum image with all tools
+FROM ghcr.io/vepaks/go-ethereum_alltools:master_latest
+
+# Install Node.js and npm for Hardhat
+# We need Node.js to run the Hardhat project and deploy contracts
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory for the Hardhat project
+WORKDIR /app
+
+# Copy the Hardhat project files from the root directory
+# This includes contracts, scripts, and configuration
+COPY ../hardhat .
+
+# Install project dependencies
+# This will install all required npm packages for the Hardhat project
+RUN npm install
+
+# Compile the smart contracts
+# This step ensures all contracts are compiled and ready for deployment
+RUN npx hardhat compile
+
+# Copy the initialization script from ci/hardhat
+COPY init-devnet.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-devnet.sh
+
+# Set environment variables for geth
+# These are the default options for running geth in dev mode
+ENV GETH_OPTS="--dev --http --http.addr 0.0.0.0 --http.api eth,net,web3,debug --http.corsdomain '*' --ws --ws.addr 0.0.0.0 --ws.api eth,net,web3,debug --ws.origins '*'"
+
+# The initialization script will:
+# 1. Start geth in dev mode
+# 2. Deploy the contracts
+# 3. Save the blockchain state
+CMD ["/usr/local/bin/init-devnet.sh"] 
