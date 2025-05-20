@@ -58,3 +58,7 @@ cmd/rlpdump/rlpdump
 cmd/workload/workload
 
 .env
+/hardhat/node_modules
+/hardhat/package-lock.json
+/hardhat/cache
+/hardhat/artifacts
