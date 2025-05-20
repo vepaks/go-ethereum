@@ -62,3 +62,9 @@ cmd/workload/workload
 /hardhat/package-lock.json
 /hardhat/cache
 /hardhat/artifacts
+
+/aws
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+.terraform.tfstate.lock.info
