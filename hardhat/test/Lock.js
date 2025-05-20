@@ -6,10 +6,17 @@ describe("Lock", function () {
   let owner;
   let otherAccount;
   let snapshotId;
+  let isHardhatNetwork;
 
   beforeEach(async function () {
-    // Take a snapshot before each test
-    snapshotId = await ethers.provider.send("evm_snapshot", []);
+    // Check if we're on Hardhat Network
+    isHardhatNetwork = (await ethers.provider.getNetwork()).chainId === 31337n;
+    
+    if (isHardhatNetwork) {
+      // Take a snapshot before each test (only on Hardhat Network)
+      snapshotId = await ethers.provider.send("evm_snapshot", []);
+    }
+
     // Get signers
     [owner, otherAccount] = await ethers.getSigners();
 
@@ -20,8 +27,10 @@ describe("Lock", function () {
   });
 
   afterEach(async function () {
-    // Restore to snapshot after each test
-    await ethers.provider.send("evm_revert", [snapshotId]);
+    if (isHardhatNetwork) {
+      // Restore to snapshot after each test (only on Hardhat Network)
+      await ethers.provider.send("evm_revert", [snapshotId]);
+    }
   });
 
   describe("Deployment", function () {
@@ -48,18 +57,31 @@ describe("Lock", function () {
     });
 
     it("Should revert with the right error if called from another account", async function () {
-      // Increase time to well past unlock time
-      await ethers.provider.send("evm_increaseTime", [120]);
-      await ethers.provider.send("evm_mine");
+      if (isHardhatNetwork) {
+        // Increase time to well past unlock time (only on Hardhat Network)
+        await ethers.provider.send("evm_increaseTime", [120]);
+        await ethers.provider.send("evm_mine");
+      } else {
+        // On geth, we need to wait for the actual time to pass
+        this.timeout(180000); // Increase timeout to 3 minutes
+        await new Promise(resolve => setTimeout(resolve, 120000)); // Wait 2 minutes
+      }
+      
       await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
         "You aren't the owner"
       );
     });
 
     it("Should transfer the funds to the owner", async function () {
-      // Increase time to well past unlock time
-      await ethers.provider.send("evm_increaseTime", [120]);
-      await ethers.provider.send("evm_mine");
+      if (isHardhatNetwork) {
+        // Increase time to well past unlock time (only on Hardhat Network)
+        await ethers.provider.send("evm_increaseTime", [120]);
+        await ethers.provider.send("evm_mine");
+      } else {
+        // On geth, we need to wait for the actual time to pass
+        this.timeout(180000); // Increase timeout to 3 minutes
+        await new Promise(resolve => setTimeout(resolve, 120000)); // Wait 2 minutes
+      }
 
       const initialBalance = await ethers.provider.getBalance(owner.address);
       const tx = await lock.withdraw();
