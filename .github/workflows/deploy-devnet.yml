@@ -70,4 +70,85 @@ jobs:
             VERSION=${{ github.sha }}
             BUILDNUM=${{ github.run_number }}
             BRANCH=${{ github.event.pull_request.base.ref }}
-            ENVIRONMENT=${{ env.ENVIRONMENT }} 
+            ENVIRONMENT=${{ env.ENVIRONMENT }}
+
+  test-devnet:
+    needs: build-and-push-devnet
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'CI:Deploy')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start devnet container
+        run: |
+          docker run -d \
+            --name devnet \
+            -p 8545:8545 \
+            -p 8546:8546 \
+            ghcr.io/${{ github.repository }}_devnet:${{ github.event.pull_request.base.ref }}_latest
+
+      - name: Wait for devnet to be ready
+        run: |
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            if curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null; then
+              echo "Devnet is ready"
+              exit 0
+            fi
+            sleep 1
+            timeout=$((timeout-1))
+          done
+          echo "Devnet failed to start"
+          exit 1
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd hardhat
+          npm install
+
+      - name: Create .env file
+        run: |
+          cat > hardhat/.env << EOL
+          # Network Configuration
+          HARDHAT_NETWORK=localhost
+          HARDHAT_NETWORK_URL=http://localhost:8545
+
+          # Test Account (will be funded by devnet)
+          TEST_PRIVATE_KEY=${{ secrets.TEST_PRIVATE_KEY }}
+          TEST_ADDRESS=${{ secrets.TEST_ADDRESS }}
+
+          # Contract Configuration
+          CONTRACT_NAME=${{ secrets.CONTRACT_NAME }}
+          CONTRACT_VERSION=${{ secrets.CONTRACT_VERSION }}
+          EOL
+
+      - name: Run Hardhat tests
+        run: |
+          cd hardhat
+          npx hardhat test --network localhost
+        env:
+          HARDHAT_NETWORK: localhost
+          HARDHAT_NETWORK_URL: http://localhost:8545
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop devnet || true
+          docker rm devnet || true 
