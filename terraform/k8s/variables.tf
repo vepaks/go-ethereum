@@ -37,5 +37,5 @@ variable "node_min_size" {
 variable "instance_types" {
   description = "Type of EC2 instances"
   type        = list(string)
-  default     = ["t3.micro"]
+  default     = ["t3.medium"]
 } 
