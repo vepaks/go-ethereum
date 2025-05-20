@@ -154,4 +154,8 @@ jobs:
         if: always()
         run: |
           docker stop devnet || true
-          docker rm devnet || true 
+          docker rm devnet || true
+
+      - name: Show devnet container logs on failure
+        if: failure()
+        run: docker logs devnet || true 
