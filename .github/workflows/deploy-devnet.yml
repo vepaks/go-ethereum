@@ -84,6 +84,15 @@ jobs:
       - name: Create test directory
         run: mkdir -p ./test-results
       
+      - name: Install Docker Compose if needed
+        run: |
+          if ! command -v docker compose &> /dev/null; then
+            echo "Installing Docker Compose..."
+            sudo apt-get update
+            sudo apt-get install -y docker-compose-plugin
+          fi
+          docker compose version
+      
       - name: Copy .env template for testing
         run: |
           echo "Using .env.template for deployment configuration"
@@ -97,18 +106,18 @@ jobs:
 
           # Start the devnet using Docker Compose
           cd ci/hardhat
-          docker-compose up -d devnet
+          docker compose up -d devnet
 
           # Wait for devnet to be healthy
           echo "Waiting for devnet to be ready..."
-          docker-compose ps -a
+          docker compose ps -a
           
           # Check for container health status
           max_attempts=30
           attempts=0
           
           while [ $attempts -lt $max_attempts ]; do
-            health=$(docker inspect --format='{{.State.Health.Status}}' $(docker-compose ps -q devnet))
+            health=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q devnet))
             if [ "$health" == "healthy" ]; then
               echo "Devnet is healthy and ready!"
               break
@@ -120,21 +129,21 @@ jobs:
 
           if [ $attempts -eq $max_attempts ]; then
             echo "Devnet failed to become healthy within timeout"
-            docker-compose logs devnet
+            docker compose logs devnet
             exit 1
           fi
 
           # Run tests with Docker Compose
-          docker-compose up --exit-code-from hardhat-tests hardhat-tests
+          docker compose up --exit-code-from hardhat-tests hardhat-tests
 
       - name: Show devnet logs on failure
         if: failure()
         run: |
           cd ci/hardhat
-          docker-compose logs devnet
+          docker compose logs devnet
 
       - name: Cleanup
         if: always()
         run: |
           cd ci/hardhat
-          docker-compose down -v
+          docker compose down -v
