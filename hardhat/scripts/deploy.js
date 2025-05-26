@@ -15,12 +15,14 @@ async function main() {
     
     console.log(`Token contract deployed to: ${token.address}`);
     
-    // Check initial supply after deployment
-    const deployer = (await ethers.getSigners())[0];
-    const initialSupply = await token.balanceOf(deployer.address);
-    console.log(`Initial supply: ${ethers.utils.formatEther(initialSupply)} tokens`);
+    // Get deployer address
+    const [deployer] = await ethers.getSigners();
+    console.log(`Deployed by: ${deployer.address}`);
     
-    // Return the deployed contract
+    // Log initial token balance
+    const balance = await token.balanceOf(deployer.address);
+    console.log(`Initial supply: ${balance.toString()} tokens`);
+    
     return { token };
   } catch (error) {
     console.error("Error in deployment:", error);
