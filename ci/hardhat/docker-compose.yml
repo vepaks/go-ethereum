@@ -10,7 +10,7 @@ services:
             - "30303:30303/udp" # P2P discovery
         volumes:
             - devnet-data:/root/.ethereum
-            - ../hardhat:/app/hardhat:ro
+            - ../../hardhat:/app:ro
         environment:
             - GETH_ARGS=--dev --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,debug,miner --http.corsdomain '*' --ws --ws.addr 0.0.0.0 --ws.port 8546 --ws.api eth,net,web3,debug,miner --ws.origins '*' --allow-insecure-unlock --rpc.allow-unprotected-txs --nodiscover --miner.gaslimit ${GAS_LIMIT:-11500000} --miner.gasprice ${GAS_PRICE:-1000000}
         env_file:
@@ -40,11 +40,11 @@ services:
         depends_on:
             devnet:
                 condition: service_healthy
-        working_dir: /app/hardhat
+        working_dir: /app
         volumes:
-            - ../hardhat:/app/hardhat
+            - ../../hardhat:/app
         command: >
-            sh -c "cd /app/hardhat &&
+            sh -c "cd /app &&
                    npm install &&
                    npx hardhat test --network localhost"
         environment:
