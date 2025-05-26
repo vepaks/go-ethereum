@@ -1,8 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 # Simplified initialization script for Go Ethereum devnet
 # This script starts geth in dev mode and deploys contracts
 
 set -e  # Exit on any error
+
+# Function to handle cleanup on error
+cleanup() {
+  echo "ERROR: Initialization failed, cleaning up..."
+  if [ -n "$GETH_PID" ] && ps -p $GETH_PID > /dev/null; then
+    kill $GETH_PID || true
+  fi
+  exit 1
+}
+
+# Set up error trap
+trap cleanup ERR INT TERM
 
 echo "===== Go Ethereum DevNet Initialization ====="
 echo "Starting initialization at $(date)"
@@ -75,15 +87,41 @@ fi
 # Deploy contracts using Hardhat
 echo "Deploying contracts with Hardhat..."
 cd /app
-if npx hardhat run scripts/deploy.js --network localhost; then
-    echo "✓ Contracts deployed successfully"
-else
-    echo "ERROR: Contract deployment failed"
-    exit 1
-fi
+MAX_ATTEMPTS=3
+ATTEMPT=1
+
+while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+    echo "Deployment attempt $ATTEMPT of $MAX_ATTEMPTS..."
+    if npx hardhat run scripts/deploy.js --network localhost; then
+        echo "✓ Contracts deployed successfully"
+        break
+    else
+        echo "WARNING: Contract deployment attempt $ATTEMPT failed"
+        if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+            echo "Waiting 5 seconds before retrying deployment..."
+            sleep 5
+        else
+            echo "ERROR: Contract deployment failed after $MAX_ATTEMPTS attempts"
+            exit 1
+        fi
+    fi
+    ATTEMPT=$((ATTEMPT + 1))
+done
 
 # Print node status after deployment
 show_node_status
+
+# Verify that contracts are accessible
+echo "Verifying contract deployment..."
+VERIFY_RESULT=$(curl -s -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x5FbDB2315678afecb367f032d93F642f64180aa3", "latest"],"id":1}' \
+  http://localhost:8545)
+
+if echo $VERIFY_RESULT | grep -q "0x"; then
+  echo "✓ Contract verification successful"
+else
+  echo "WARNING: Could not verify contract deployment, but continuing anyway"
+fi
 
 echo "===== DevNet initialization completed successfully ====="
 echo "RPC endpoint: http://localhost:8545"

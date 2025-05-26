@@ -26,6 +26,7 @@ WORKDIR /app
 # Copy package files first to leverage layer caching
 COPY hardhat/package*.json ./
 RUN npm install
+RUN npm install dotenv @openzeppelin/contracts
 
 # BUILD-TIME: Copy and compile smart contracts
 COPY hardhat/ ./

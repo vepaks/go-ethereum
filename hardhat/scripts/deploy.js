@@ -1,25 +1,41 @@
-const hre = require("hardhat");
+// scripts/deploy.js
+// Script to deploy contracts to the local Ethereum network
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
-
-  const lockedAmount = hre.ethers.parseEther("0.001");
-
-  const lock = await hre.ethers.deployContract("Lock", [unlockTime], {
-    value: lockedAmount,
-  });
-
-  await lock.waitForDeployment();
-
-  console.log(
-    `Lock with ${hre.ethers.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.target}`
-  );
+  try {
+    // Get the contract factory
+    const Token = await ethers.getContractFactory("Token");
+    console.log("Deploying Token contract...");
+    
+    // Deploy the contract
+    const token = await Token.deploy();
+    
+    // Wait for deployment to finish
+    await token.deployed();
+    
+    console.log(`Token contract deployed to: ${token.address}`);
+    
+    // Check initial supply after deployment
+    const deployer = (await ethers.getSigners())[0];
+    const initialSupply = await token.balanceOf(deployer.address);
+    console.log(`Initial supply: ${ethers.utils.formatEther(initialSupply)} tokens`);
+    
+    // Return the deployed contract
+    return { token };
+  } catch (error) {
+    console.error("Error in deployment:", error);
+    throw error;
+  }
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-}); 
+// Execute deployment
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+module.exports = main;
