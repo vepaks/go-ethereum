@@ -1,5 +1,6 @@
 // scripts/deploy.js
 // Script to deploy contracts to the local Ethereum network
+const { ethers } = require("hardhat");
 
 async function main() {
   try {
