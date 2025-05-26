@@ -58,9 +58,20 @@ cmd/rlpdump/rlpdump
 cmd/workload/workload
 
 .env
+.env.act
 /hardhat/node_modules
 /hardhat/package-lock.json
 /hardhat/cache
+
+# Act-related files
+.actrc
+.github/act/
+act-test.sh
+.github/workflows/test-workflow.yml
+.input
+.secrets
+.vars
+
 /hardhat/artifacts
 
 /aws

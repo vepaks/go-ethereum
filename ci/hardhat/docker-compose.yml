@@ -1,26 +1,73 @@
 services:
-  devnet:
-    # Use the devnet image that includes deployed contracts
-    image: ghcr.io/vepaks/go-ethereum:master_latest
-    # Always pull the latest image
-    pull_policy: always
-    # Map ports for RPC and WebSocket connections
-    ports:
-      - "8545:8545"  # HTTP JSON-RPC
-      - "8546:8546"  # WebSocket
-    # Mount volumes for persistent data
-    volumes:
-      - devnet-data:/root/.ethereum
-    # Environment variables for configuration
-    environment:
-      - GETH_OPTS=--dev --http --http.addr 0.0.0.0 --http.api eth,net,web3,debug --http.corsdomain "*" --ws --ws.addr 0.0.0.0 --ws.api eth,net,web3,debug --ws.origins "*"
-    # Load environment variables from .env file if it exists
-    env_file:
-      - ../.env
-    # Restart policy
-    restart: unless-stopped
+    devnet:
+        # Use the devnet image with predeployed contracts
+        image: ${DEVNET_IMAGE:-ghcr.io/vepaks/go-ethereum_devnet:${BRANCH:-master}_latest}
+        pull_policy: always
+        ports:
+            - "8545:8545" # HTTP JSON-RPC
+            - "8546:8546" # WebSocket
+            - "30303:30303" # P2P communication
+            - "30303:30303/udp" # P2P discovery
+        volumes:
+            - devnet-data:/root/.ethereum
+            - ../hardhat:/app/hardhat:ro
+        environment:
+            - GETH_ARGS=--dev
+              --http
+              --http.addr 0.0.0.0
+              --http.port 8545
+              --http.api eth,net,web3,debug,miner
+              --http.corsdomain '*'
+              --ws
+              --ws.addr 0.0.0.0
+              --ws.port 8546
+              --ws.api eth,net,web3,debug,miner
+              --ws.origins '*'
+              --allow-insecure-unlock
+              --rpc.allow-unprotected-txs
+              --nodiscover
+              --miner.gaslimit ${GAS_LIMIT:-11500000}
+              --miner.gasprice ${GAS_PRICE:-1000000}
+        env_file:
+            - ./.env.template
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "curl",
+                    "-f",
+                    "-X",
+                    "POST",
+                    "-H",
+                    "Content-Type: application/json",
+                    "--data",
+                    '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}',
+                    "http://localhost:8545",
+                ]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+            start_period: 10s
+
+    hardhat-tests:
+        image: node:18-alpine
+        depends_on:
+            devnet:
+                condition: service_healthy
+        working_dir: /app
+        volumes:
+            - ../hardhat:/app:ro
+        command: >
+            sh -c "cd /app &&
+                   npm install &&
+                   npx hardhat test --network localhost"
+        environment:
+            - HARDHAT_NETWORK=localhost
+            - HARDHAT_NETWORK_URL=http://devnet:8545
+        env_file:
+            - ./.env.template
 
 volumes:
-  # Named volume for persistent blockchain data
-  devnet-data:
-    name: go-ethereum-devnet-data 
+    devnet-data:
+        name: go-ethereum-devnet-data
