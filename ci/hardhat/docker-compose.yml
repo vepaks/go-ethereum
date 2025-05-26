@@ -40,11 +40,11 @@ services:
         depends_on:
             devnet:
                 condition: service_healthy
-        working_dir: /app
+        working_dir: /app/hardhat
         volumes:
-            - ../hardhat:/app
+            - ../hardhat:/app/hardhat
         command: >
-            sh -c "cd /app &&
+            sh -c "cd /app/hardhat &&
                    npm install &&
                    npx hardhat test --network localhost"
         environment:
