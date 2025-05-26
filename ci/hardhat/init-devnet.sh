@@ -7,7 +7,7 @@ set -e  # Exit on any error
 # Function to handle cleanup on error
 cleanup() {
   echo "ERROR: Initialization failed, cleaning up..."
-  if [ -n "$GETH_PID" ] && ps -p $GETH_PID > /dev/null; then
+  if [ -n "$GETH_PID" ] && kill -0 $GETH_PID 2>/dev/null; then
     kill $GETH_PID || true
   fi
   exit 1
@@ -58,8 +58,8 @@ echo "Starting geth with arguments: $GETH_ARGS"
 geth $GETH_ARGS &
 GETH_PID=$!
 
-# Check if geth started successfully
-if ! ps -p $GETH_PID > /dev/null; then
+# Check if geth started successfully (BusyBox compatible)
+if ! kill -0 $GETH_PID 2>/dev/null; then
     echo "ERROR: Failed to start geth process"
     exit 1
 fi
