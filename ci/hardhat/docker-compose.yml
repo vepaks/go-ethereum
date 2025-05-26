@@ -1,7 +1,7 @@
 services:
     devnet:
         # Use the devnet image with predeployed contracts
-        image: ${DEVNET_IMAGE:-ghcr.io/vepaks/go-ethereum_devnet:master-latest}
+        image: ghcr.io/vepaks/go-ethereum_devnet:master-latest
         pull_policy: always
         ports:
             - "8545:8545" # HTTP JSON-RPC
