@@ -1,5 +1,12 @@
 require("@nomicfoundation/hardhat-toolbox");
-require('dotenv').config({ path: process.env.ENV_FILE || '.env' });
+
+// Try to load dotenv if available
+try {
+  require('dotenv').config({ path: process.env.ENV_FILE || '.env' });
+} catch (error) {
+  console.log('dotenv module not found, using process.env only');
+  // Continue without dotenv
+}
 
 /**
  * Simplified Hardhat Configuration

@@ -83,6 +83,11 @@ jobs:
       
       - name: Create test directory
         run: mkdir -p ./test-results
+      
+      - name: Copy .env template for testing
+        run: |
+          echo "Using .env.template for deployment configuration"
+          cp ci/hardhat/.env.template hardhat/.env
 
       - name: Deploy and test devnet with Docker Compose
         run: |
