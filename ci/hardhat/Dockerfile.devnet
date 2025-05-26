@@ -1,36 +1,53 @@
-# Use the base go-ethereum image with all tools
-FROM ghcr.io/vepaks/go-ethereum_alltools:master_latest
+# ============================================================================
+# Streamlined DevNet Dockerfile for Go Ethereum
+# This Dockerfile creates a development network image with predeployed contracts
+# ============================================================================
 
-# Install Node.js, npm, curl, and jq for Hardhat and scripts
-# We need Node.js to run the Hardhat project and deploy contracts
+# ============================================================================
+# Stage 1: Runtime base image (FROM)
+# ============================================================================
+FROM ghcr.io/vepaks/go-ethereum_alltools:master-latest
+
+# ============================================================================
+# Stage 2: Build-time operations
+# ============================================================================
+# Install build & runtime dependencies in a single layer to reduce image size
 RUN apk add --no-cache \
     nodejs \
     npm \
     curl \
-    jq
+    jq \
+    bash
 
 # Set working directory for the Hardhat project
 WORKDIR /app
 
-# Copy the Hardhat project files from the root directory
-# This includes contracts, scripts, and configuration
-COPY hardhat .
-
-# Install project dependencies
-# This will install all required npm packages for the Hardhat project
+# BUILD-TIME: Package installation and compilation
+# Copy package files first to leverage layer caching
+COPY hardhat/package*.json ./
 RUN npm install
 
-# Compile the smart contracts
-# This step ensures all contracts are compiled and ready for deployment
+# BUILD-TIME: Copy and compile smart contracts
+COPY hardhat/ ./
 RUN npx hardhat compile
 
-# Copy the initialization script from ci/hardhat
+# BUILD-TIME: Copy initialization scripts and configuration
 COPY ./ci/hardhat/init-devnet.sh /usr/local/bin/
-RUN ls -l /usr/local/bin/ && ls -l /app && ls -l /
 RUN chmod +x /usr/local/bin/init-devnet.sh
 
-# Set environment variables for geth
-# The dev account will be auto-created and unlocked by geth in dev mode
+# ============================================================================
+# Stage 3: Runtime configuration
+# ============================================================================
+
+# RUNTIME: Health monitoring configuration
+# Add a healthcheck to verify the node is responsive
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=10 \
+  CMD curl -f -X POST -H "Content-Type: application/json" \
+      --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+      http://localhost:8545 || exit 1
+
+# RUNTIME: Environment variables configuration
+# Default environment variables with sensible values
 ENV GETH_ARGS="--dev \
     --http \
     --http.addr 0.0.0.0 \
@@ -46,10 +63,14 @@ ENV GETH_ARGS="--dev \
     --rpc.allow-unprotected-txs \
     --nodiscover \
     --miner.gaslimit 11500000 \
-    --miner.gasprice 1000000"
+    --miner.gasprice 1000000" \
+    GAS_LIMIT=11500000 \
+    GAS_PRICE=1000000
 
-# The initialization script will:
-# 1. Start geth in dev mode
-# 2. Deploy the contracts
-# 3. Save the blockchain state
-CMD ["/usr/local/bin/init-devnet.sh"] 
+# RUNTIME: Network configuration
+# Expose ports for HTTP-RPC, WS-RPC and P2P
+EXPOSE 8545 8546 30303 30303/udp
+
+# RUNTIME: Container startup configuration
+# Use the initialization script as entry point
+ENTRYPOINT ["/usr/local/bin/init-devnet.sh"]

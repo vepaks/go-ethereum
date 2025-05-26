@@ -1,6 +1,5 @@
 # Docker Build and Push Workflow
-# This workflow automates the process of building and pushing Docker images to GitHub Container Registry
-# whenever a pull request with the label 'CI:Build' is merged to master or develop branches.
+# Simplified workflow for building and pushing Docker images to GitHub Container Registry
 name: Docker Build and Push
 
 # Workflow Trigger Configuration
@@ -17,7 +16,6 @@ jobs:
     # Conditional execution: Only run if the PR was actually merged and has the 'CI:Build' label
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'CI:Build')
     runs-on: ubuntu-latest
-    # Required permissions for pushing to GitHub Container Registry
     permissions:
       contents: read
       packages: write
@@ -27,20 +25,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set environment variable based on target branch
-      # - master branch -> prod environment
-# - develop branch -> stage environment
-      # - any other branch -> use branch name as environment (e.g. feature/my-feature) (OPTIONAL)
-      - name: Set environment based on target branch
-        id: set-env
+      # Step 2: Set environment variable based on target branch with simplified logic
+      - name: Set environment and tags
+        id: set-metadata
         run: |
+          # Set environment based on branch
           if [[ "${{ github.event.pull_request.base.ref }}" == "master" ]]; then
             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
-          elif [[ "${{ github.event.pull_request.base.ref }}" == "develop" ]]; then
-            echo "ENVIRONMENT=stage" >> $GITHUB_ENV
           else
-            echo "ENVIRONMENT=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+            echo "ENVIRONMENT=stage" >> $GITHUB_ENV
           fi
+          
+          # Extract branch name and commit SHA for simpler tagging
+          BRANCH="${{ github.event.pull_request.base.ref }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          
+          # Set tags for both images using branch-latest and branch-sha convention
+          echo "MAIN_TAGS=ghcr.io/${{ github.repository }}:${BRANCH}-latest,ghcr.io/${{ github.repository }}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_ENV
+          echo "ALLTOOLS_TAGS=ghcr.io/${{ github.repository }}_alltools:${BRANCH}-latest,ghcr.io/${{ github.repository }}_alltools:${BRANCH}-${SHORT_SHA}" >> $GITHUB_ENV
 
       # Step 3: Set up Docker Buildx for multi-platform builds
       - name: Set up Docker Buildx
@@ -54,80 +56,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 5: Extract metadata for the main geth image
-      # Creates tags like:
-      # - branch_latest (e.g., master_latest, develop_latest)
-# - branch_<short-sha> (e.g., master_a1b2c3d, develop_a1b2c3d)
-      - name: Extract metadata for main image
-        id: meta-main
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=${{ github.event.pull_request.base.ref }}_latest
-            type=sha,prefix=${{ github.event.pull_request.base.ref }}_,format=short
-
-      # Step 6: Extract metadata for alltools image (similar tag structure as main image)
-      - name: Extract metadata for alltools image
-        id: meta-alltools
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}_alltools
-          tags: |
-            type=raw,value=${{ github.event.pull_request.base.ref }}_latest
-            type=sha,prefix=${{ github.event.pull_request.base.ref }}_,format=short
-
-      # Step 7: Build and push the main geth Docker image
-      # This uses the Dockerfile in ci/Dockerfile which builds only the geth binary
-      - name: Build and push environment Docker image
+      # Step 5: Build and push the main geth Docker image
+      - name: Build and push main Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./ci/Dockerfile
           push: true
-          tags: ${{ steps.meta-main.outputs.tags }}
-          # Set standardized OCI image labels for better container metadata
+          tags: ${{ env.MAIN_TAGS }}
           labels: |
             org.opencontainers.image.title=${{ github.event.pull_request.base.ref }}_${{ env.ENVIRONMENT }}
-            org.opencontainers.image.description=go-ethereum application image | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }} | Build: ${{ github.run_number }} | Commit: ${{ github.sha }}
+            org.opencontainers.image.description=go-ethereum application image | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }}
             org.opencontainers.image.version=${{ github.sha }}
-            org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/README.md
-            org.opencontainers.image.authors=${{ github.actor }}
-          # Pass build arguments to the Dockerfile for versioning
-          # These values will be available as ARG variables in the Dockerfile
+          # Only pass essential build arguments
           build-args: |
             COMMIT=${{ github.sha }}
             VERSION=${{ github.sha }}
-            BUILDNUM=${{ github.run_number }}
-            BRANCH=${{ github.event.pull_request.base.ref }}
-            ENVIRONMENT=${{ env.ENVIRONMENT }}
 
-      # Step 8: Build and push the alltools Docker image
-      # This uses Dockerfile.alltools which builds all Ethereum tools, not just geth
-      - name: Build and push environment with all tools Docker image
+      # Step 6: Build and push the alltools Docker image
+      - name: Build and push alltools Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./ci/Dockerfile.alltools
           push: true
-          tags: ${{ steps.meta-alltools.outputs.tags }}
-          # Similar OCI labels as the main image, but specifies this is the AllTools variant
+          tags: ${{ env.ALLTOOLS_TAGS }}
           labels: |
             org.opencontainers.image.title=${{ github.event.pull_request.base.ref }}_${{ env.ENVIRONMENT }}_AllTools
-            org.opencontainers.image.description=go-ethereum development image with all tools | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }} | Build: ${{ github.run_number }} | Commit: ${{ github.sha }}
+            org.opencontainers.image.description=go-ethereum development image with all tools | Branch: ${{ github.event.pull_request.base.ref }} | Environment: ${{ env.ENVIRONMENT }}
             org.opencontainers.image.version=${{ github.sha }}
-            org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/README.md
-            org.opencontainers.image.authors=${{ github.actor }}
-          # Pass the same build arguments as the main image
+          # Only pass essential build arguments
           build-args: |
             COMMIT=${{ github.sha }}
             VERSION=${{ github.sha }}
-            BUILDNUM=${{ github.run_number }}
-            BRANCH=${{ github.event.pull_request.base.ref }}
-            ENVIRONMENT=${{ env.ENVIRONMENT }} 

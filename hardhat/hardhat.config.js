@@ -1,18 +1,36 @@
 require("@nomicfoundation/hardhat-toolbox");
+require('dotenv').config({ path: process.env.ENV_FILE || '.env' });
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
-  solidity: "0.8.20",
-  networks: {
-    hardhat: {
-      chainId: 31337
-    },
-    localhost: {
-      url: "http://127.0.0.1:8545",
-      chainId: 1337,
-      accounts: [
-        "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113b37c6d8a8c7e3b8b8b8b8b8b"
-      ]
-    }
-  }
-};
+/**
+ * Simplified Hardhat Configuration
+ * This config selects the appropriate environment configuration based on NODE_ENV
+ */
+
+// Determine which environment to use
+const environment = process.env.NODE_ENV || 'development';
+
+let configFile;
+switch (environment) {
+  case 'production':
+  case 'prod':
+    console.log('Using production configuration');
+    configFile = './config/hardhat.prod.js';
+    break;
+  case 'staging':
+  case 'stage':
+    console.log('Using staging configuration');
+    configFile = './config/hardhat.stage.js';
+    break;
+  case 'development':
+  case 'dev':
+  default:
+    console.log('Using development configuration');
+    configFile = './config/hardhat.dev.js';
+    break;
+}
+
+// Load the appropriate configuration
+const config = require(configFile);
+
+// Export the loaded configuration
+module.exports = config;
